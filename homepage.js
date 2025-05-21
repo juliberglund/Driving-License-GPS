@@ -25,6 +25,7 @@ export default function Homepage() {
       return;
     }
     Alert.alert("Tack!", "Du har nu tillgång till dina 3 gratis lektioner.");
+    navigation.navigate("ChooseActivity");
     // TODO: spara användardata, aktivera lektioner, starta prenumeration etc
   };
 
@@ -80,7 +81,7 @@ const styles = StyleSheet.create({
   },
   link: {
     fontSize: 16,
-    color: "#ECA", // lila färg som syns bra
+    color: "#ACECAA",
     textAlign: "center",
     marginBottom: 20,
     fontFamily: "cursive",
