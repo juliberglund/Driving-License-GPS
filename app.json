@@ -13,17 +13,35 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "config": {
+        "googleMapsApiKey": "***REMOVED***"
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Appen behöver tillgång till din plats för att visa den på kartan."
+      },
+      "bundleIdentifier": "com.anonymous.DrivingLicense"
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+      "usesCleartextTraffic": true,
+      "config": {
+        "googleMaps": {
+          "apiKey": "***REMOVED***"
+        }
       },
-      "edgeToEdgeEnabled": true
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
+      "package": "com.anonymous.DrivingLicense"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "5577bc42-6df0-4de8-918a-db8340175a63"
+      }
     }
   }
 }
