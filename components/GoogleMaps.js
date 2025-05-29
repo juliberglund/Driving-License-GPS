@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { StyleSheet, View, Dimensions, Button } from "react-native";
+import { StyleSheet, View, Dimensions } from "react-native";
 import MapView from "react-native-maps";
 import * as Location from "expo-location";
+import PanelButtons from "./panelComponents/PanelButtons";
 
 export default function GoogleMaps() {
   const mapRef = useRef(null);
@@ -119,14 +120,11 @@ export default function GoogleMaps() {
         onRegionChange={() => setIsFollowingUser(false)}
       />
 
-      <View style={styles.buttonContainer}>
-        <Button
-          title={is3D ? "Byt till 2D" : "Byt till 3D"}
-          onPress={toggleView}
-        />
-        <View style={{ height: 10 }} />
-        <Button title="Återställ kamera" onPress={resetCamera} />
-      </View>
+      <PanelButtons
+        is3D={is3D}
+        onToggleView={toggleView}
+        onResetCamera={resetCamera}
+      />
     </View>
   );
 }
@@ -136,14 +134,5 @@ const styles = StyleSheet.create({
   map: {
     width: Dimensions.get("window").width,
     height: Dimensions.get("window").height,
-  },
-  buttonContainer: {
-    position: "absolute",
-    top: 40,
-    right: 20,
-    backgroundColor: "white",
-    borderRadius: 8,
-    padding: 5,
-    elevation: 5,
   },
 });
