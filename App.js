@@ -20,9 +20,10 @@ export default function App() {
       <Stack.Navigator initialRouteName="Start">
         <Stack.Screen
           name="Start"
-          component={GoogleMaps}
+          component={StartScreen}
           options={{ headerShown: false }}
         />
+        <Stack.Screen name="StartScreen" component={StartScreen} />
         <Stack.Screen name="Homepage" component={Homepage} />
         <Stack.Screen name="Prisplan" component={Prisplan} />
         <Stack.Screen name="ChooseActivity" component={ChooseActivity} />
