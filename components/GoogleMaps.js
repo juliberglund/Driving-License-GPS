@@ -13,10 +13,32 @@ export default function GoogleMaps() {
   const [currentLocation, setCurrentLocation] = useState(null);
 
   useEffect(() => {
+    console.log("🌀 useEffect har startat");
+
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      console.log("📋 Begärde tillstånd, fick status:", status);
+
+      if (status !== "granted") {
+        console.log("⛔ Åtkomst till plats nekad");
+
+        const { status: existingStatus } =
+          await Location.getForegroundPermissionsAsync();
+
+        console.log("📋 Existerande status:", existingStatus);
+        return;
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         console.log("Åtkomst till plats nekad");
+        const { status: existingStatus } =
+          await Location.getForegroundPermissionsAsync();
+        console.log("Platsbehörighetens status:", status);
         return;
       }
 
@@ -33,6 +55,7 @@ export default function GoogleMaps() {
         },
         (location) => {
           const { latitude, longitude, heading } = location.coords;
+          console.log("📍 Position:", latitude, longitude, heading);
           setCurrentLocation({ latitude, longitude, heading });
 
           if (isFollowingUser && mapRef.current) {
