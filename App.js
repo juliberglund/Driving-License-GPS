@@ -1,13 +1,17 @@
-// App.js
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import StartScreen from "./StartScreen";
-import Homepage from "./homepage";
-import Prisplan from "./Prisplan";
-import ChooseActivity from "./ChooseActivity";
-import DrivingLesson from "./DrivingLesson"; // rätt namn
-import Signs from "./Signs"; // rätt importväg
-import SignsCategory from "./SignsCategory";
+
+import {
+  StartScreen,
+  Homepage,
+  Prisplan,
+  ChooseActivity,
+  DrivingLesson,
+  Signs,
+  SignsCategory,
+  GoogleMaps,
+} from "./components/importFil";
+
 const Stack = createNativeStackNavigator();
 
 export default function App() {
@@ -19,6 +23,7 @@ export default function App() {
           component={StartScreen}
           options={{ headerShown: false }}
         />
+        <Stack.Screen name="StartScreen" component={StartScreen} />
         <Stack.Screen name="Homepage" component={Homepage} />
         <Stack.Screen name="Prisplan" component={Prisplan} />
         <Stack.Screen name="ChooseActivity" component={ChooseActivity} />
