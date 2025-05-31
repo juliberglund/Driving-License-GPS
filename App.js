@@ -10,7 +10,7 @@ import {
   Signs,
   SignsCategory,
   GoogleMaps,
-  TestPlaces,
+  LocationInput,
 } from "./components/importFil";
 
 const Stack = createNativeStackNavigator();
@@ -21,7 +21,7 @@ export default function App() {
       <Stack.Navigator initialRouteName="Start">
         <Stack.Screen
           name="Start"
-          component={TestPlaces}
+          component={GoogleMaps}
           options={{ headerShown: false }}
         />
         <Stack.Screen name="StartScreen" component={StartScreen} />
