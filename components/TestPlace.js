@@ -1,6 +1,3 @@
-// components/TestPlaces.js
-
-// Polyfill för crypto.getRandomValues (krävs av vissa delar av autocomplete/lib)
 import "react-native-get-random-values";
 
 import React from "react";
@@ -23,11 +20,10 @@ export default function TestPlaces() {
         listViewDisplayed="auto"
         keepResultsAfterBlur={false}
         currentLocation={false}
-        // Så att props.predefinedPlaces aldrig är undefined
         predefinedPlaces={[]}
         predefinedPlacesAlwaysVisible={false}
         query={{
-          key: GOOGLE_MAPS_API_KEY, // Miljövariabeln från @env
+          key: GOOGLE_MAPS_API_KEY,
           language: "sv",
           types: "address",
         }}
@@ -66,10 +62,9 @@ export default function TestPlaces() {
           </View>
         )}
         styles={{
-          // Positionera hela autocomplete‐behållaren
           container: styles.autocompleteContainer,
 
-          // Hur textinput‐behållaren ska se ut
+          //textinput‐behållaren ska se ut
           textInputContainer: {
             backgroundColor: "#f9f9f9",
             borderRadius: 20,
@@ -82,7 +77,7 @@ export default function TestPlaces() {
             elevation: 5,
           },
 
-          // Hur själva textinput‐fältet ska se ut
+          // textinput‐fältet ska se ut
           textInput: {
             height: 44,
             backgroundColor: "#FFF",
@@ -109,7 +104,6 @@ export default function TestPlaces() {
 }
 
 const styles = StyleSheet.create({
-  // Hel behållare för komponenten
   container: {
     flex: 1,
     backgroundColor: "#ffffff",
@@ -118,8 +112,6 @@ const styles = StyleSheet.create({
   // Stylingen för “container” som används av GooglePlacesAutocomplete
   autocompleteContainer: {
     flex: 1,
-    // Vi sätter position: 'absolute' direkt på textInputContainer-objektet,
-    // så här kan vi bara ha flex:1 för enkelhet.
   },
 
   // Behållare för sök‐ikonen till vänster i textfältet
@@ -131,7 +123,6 @@ const styles = StyleSheet.create({
     marginLeft: 15,
   },
 
-  // Hur själva ikonen (”search”) ska se ut
   leftIcon: {
     width: 24,
     height: 24,

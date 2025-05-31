@@ -1,5 +1,3 @@
-// GoogleMaps.js
-
 import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet, View, Dimensions, Platform, Keyboard } from "react-native";
 import MapView from "react-native-maps";
