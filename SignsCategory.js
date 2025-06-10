@@ -74,11 +74,14 @@ export default function SignsCategory() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: "#fff" },
   title: {
-    fontSize: 26,
-    fontWeight: "bold",
+    fontSize: 22,
+    fontWeight: "600",
     marginBottom: 20,
     textAlign: "center",
+    paddingHorizontal: 20,
+    flexWrap: "wrap",
   },
+
   card: {
     flexDirection: "row",
     alignItems: "center",
@@ -87,15 +90,27 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 15,
   },
-  image: { width: 70, height: 70, marginRight: 15 },
-  signName: { fontSize: 20, fontWeight: "600" },
+  image: { width: 65, height: 65, marginRight: 15 },
+  signName: {
+    fontSize: 18,
+    fontWeight: "400",
+    textAlign: "left",
+    flexShrink: 1,
+    flexWrap: "wrap",
+    maxWidth: "80%",
+  },
   modalContent: {
     padding: 30,
     justifyContent: "center",
     alignItems: "center",
     flexGrow: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#eee",
   },
-  modalTitle: { fontSize: 28, fontWeight: "bold", marginVertical: 20 },
+  modalTitle: {
+    fontSize: 28,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginVertical: 20,
+  },
   modalDescription: { fontSize: 18, textAlign: "center", marginBottom: 40 },
 });
