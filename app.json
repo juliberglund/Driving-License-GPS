@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "config": {
-        "googleMapsApiKey": "***REMOVED***"
+        "googleMapsApiKey": "AIzaSyC54sIHmXlydIwPJ1vgxGSC4QcGkpIbPJo"
       },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Appen behöver tillgång till din plats för att visa den på kartan."
@@ -26,13 +26,10 @@
       "usesCleartextTraffic": true,
       "config": {
         "googleMaps": {
-          "apiKey": "***REMOVED***"
+          "apiKey": "AIzaSyC54sIHmXlydIwPJ1vgxGSC4QcGkpIbPJo"
         }
       },
-      "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_FINE_LOCATION"
-      ],
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_FINE_LOCATION"],
       "package": "com.anonymous.DrivingLicense"
     },
     "web": {

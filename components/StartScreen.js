@@ -11,7 +11,7 @@ import {
 export default function StartScreen({ navigation }) {
   return (
     <ImageBackground
-      source={require("./img/firstpic.png")}
+      source={require("../img/firstpic.png")}
       style={styles.background}
       resizeMode="cover"
     >
