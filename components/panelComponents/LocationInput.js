@@ -167,6 +167,6 @@ const styles = StyleSheet.create({
     height: 20,
     tintColor: "#888888",
     marginTop: 2,
-    marginTop: 18,
+    marginTop: 17,
   },
 });

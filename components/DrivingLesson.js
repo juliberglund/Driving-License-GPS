@@ -5,7 +5,6 @@ import * as Location from "expo-location";
 import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
 import { GOOGLE_MAPS_API_KEY } from "@env";
 import "react-native-get-random-values";
-import { v4 as uuidv4 } from "uuid";
 
 export default function MapScreen() {
   const [region, setRegion] = useState(null);
