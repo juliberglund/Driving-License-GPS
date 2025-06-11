@@ -8,6 +8,7 @@ import "react-native-get-random-values";
 import polyline from "@mapbox/polyline";
 import { v4 as uuidv4 } from "uuid";
 
+
 export default function MapScreen() {
   const [region, setRegion] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
