@@ -10,7 +10,6 @@ import {
   Signs,
   SignsCategory,
   GoogleMaps,
-  LocationInput,
 } from "./components/importFil";
 
 const Stack = createNativeStackNavigator();

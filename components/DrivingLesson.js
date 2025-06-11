@@ -6,8 +6,6 @@ import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplet
 import { GOOGLE_MAPS_API_KEY } from "@env";
 import "react-native-get-random-values";
 import polyline from "@mapbox/polyline";
-import { v4 as uuidv4 } from "uuid";
-
 
 export default function MapScreen() {
   const [region, setRegion] = useState(null);

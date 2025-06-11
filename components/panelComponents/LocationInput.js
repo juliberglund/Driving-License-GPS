@@ -33,7 +33,9 @@ const LocationInput = forwardRef(({ currentLocation, onPlaceSelect }, ref) => {
   // Exponera endast clear() till parent via ref
   useImperativeHandle(ref, () => ({
     clear: () => {
-      autocompleteRef.current?.clear();
+      // Istället för autocompleteRef.current?.clear(),
+      // anropar vi den metod som faktiskt finns:
+      autocompleteRef.current?.setAddressText("");
     },
   }));
 
@@ -125,17 +127,6 @@ const LocationInput = forwardRef(({ currentLocation, onPlaceSelect }, ref) => {
         textInputProps={{
           placeholderTextColor: "#999999",
         }}
-        renderLeftButton={() => (
-          <View style={styles.leftButtonContainer}>
-            <Image
-              source={{
-                uri: "https://img.icons8.com/ios-filled/50/000000/search--v1.png",
-              }}
-              style={styles.leftIcon}
-              resizeMode="contain"
-            />
-          </View>
-        )}
       />
     </View>
   );
