@@ -6,7 +6,6 @@ import DrivingLesson from "./DrivingLesson";
 import Signs from "./Signs";
 import SignsCategory from "./SignsCategory";
 import GoogleMaps from "./GoogleMaps";
-import LocationInput from "./panelComponents/LocationInput";
 import TestPlaces from "./TestPlace";
 
 export {
@@ -18,6 +17,5 @@ export {
   Signs,
   SignsCategory,
   GoogleMaps,
-  LocationInput,
   TestPlaces,
 };

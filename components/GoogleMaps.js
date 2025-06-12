@@ -4,7 +4,6 @@ import MapView from "react-native-maps";
 import * as Location from "expo-location";
 import PanelButtons from "./panelComponents/PanelButtons";
 import LocationInput from "./panelComponents/LocationInput";
-
 export default function GoogleMaps() {
   const mapRef = useRef(null);
   const watchRef = useRef(null);

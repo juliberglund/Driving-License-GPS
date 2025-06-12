@@ -1,135 +1,163 @@
-import React, {
-  forwardRef,
-  useImperativeHandle,
-  useRef,
-  useState,
-  useEffect,
-} from "react";
+// components/panelComponents/PlacesAutocompleteInput.js
+
+import React, { useState, useEffect } from "react";
 import {
   View,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  Text,
   StyleSheet,
+  Alert,
   Platform,
-  Image,
-  Keyboard,
-  Dimensions,
 } from "react-native";
-import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
+import * as Location from "expo-location";
 import { GOOGLE_MAPS_API_KEY } from "@env";
 
-const LocationInput = forwardRef(({ currentLocation, onPlaceSelect }, ref) => {
-  const autocompleteRef = useRef(null);
-  const [locationBias, setLocationBias] = useState({
-    location: null,
-    radius: 2000,
-  });
+export default function LocationInput({ onPlaceSelect }) {
+  const [query, setQuery] = useState("");
+  const [predictions, setPredictions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
 
+  // Hämta användarens position vid mount
   useEffect(() => {
-    if (currentLocation) {
-      const { latitude, longitude } = currentLocation;
-      setLocationBias({ location: `${latitude},${longitude}`, radius: 2000 });
-    }
-  }, [currentLocation]);
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") return;
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setUserLocation({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      });
+    })();
+  }, []);
 
-  useImperativeHandle(ref, () => ({
-    clear: () => {
-      autocompleteRef.current?.setAddressText("");
-    },
-  }));
+  // Debounce & sök
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      if (query.length > 0) searchPlaces(query);
+      else setPredictions([]);
+    }, 200);
+    return () => clearTimeout(handle);
+  }, [query, userLocation]);
+
+  async function searchPlaces(input) {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        input,
+        key: GOOGLE_MAPS_API_KEY,
+        language: "sv",
+        components: "country:se",
+        types: "geocode|establishment",
+      });
+      if (userLocation) {
+        params.append(
+          "location",
+          `${userLocation.latitude},${userLocation.longitude}`
+        );
+        params.append("radius", "50000");
+      }
+      const res = await fetch(
+        `https://maps.googleapis.com/maps/api/place/autocomplete/json?${params}`
+      );
+      const data = await res.json();
+      if (data.status === "OK") {
+        setPredictions(
+          data.predictions.map((p) => ({
+            id: p.place_id,
+            description: p.description,
+            mainText: p.structured_formatting.main_text,
+            secondaryText: p.structured_formatting.secondary_text,
+          }))
+        );
+      } else {
+        setPredictions([]);
+      }
+    } catch (e) {
+      console.error(e);
+      setPredictions([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSelect(item) {
+    setQuery(item.description);
+    setPredictions([]);
+    // Hämta detaljerad plats
+    const params = new URLSearchParams({
+      place_id: item.id,
+      key: GOOGLE_MAPS_API_KEY,
+      fields: "geometry",
+      language: "sv",
+    });
+    const res = await fetch(
+      `https://maps.googleapis.com/maps/api/place/details/json?${params}`
+    );
+    const data = await res.json();
+    if (data.status === "OK") {
+      const { lat, lng } = data.result.geometry.location;
+      onPlaceSelect({ latitude: lat, longitude: lng });
+    } else {
+      Alert.alert("Kunde inte hämta platsdetaljer");
+    }
+  }
+
+  const renderItem = ({ item }) => (
+    <TouchableOpacity style={styles.item} onPress={() => handleSelect(item)}>
+      <Text style={styles.main}>{item.mainText}</Text>
+      {item.secondaryText ? (
+        <Text style={styles.secondary}>{item.secondaryText}</Text>
+      ) : null}
+    </TouchableOpacity>
+  );
 
   return (
-    <View style={styles.overlay}>
-      <GooglePlacesAutocomplete
-        ref={autocompleteRef}
-        placeholder="Sök adress eller plats"
-        fetchDetails
-        debounce={200}
-        enablePoweredByContainer={false}
-        nearbyPlacesAPI="GooglePlacesSearch"
-        minLength={2}
+    <View style={styles.wrapper}>
+      <TextInput
+        style={styles.input}
+        placeholder="Sök adress eller plats..."
+        value={query}
+        onChangeText={setQuery}
+        onBlur={() => setPredictions([])} // Dölj listan vid touch utanför
+      />
+      <FlatList
+        data={predictions}
+        keyExtractor={(i) => i.id}
+        renderItem={renderItem}
+        style={styles.list}
         keyboardShouldPersistTaps="handled"
-        listViewDisplayed="auto"
-        keepResultsAfterBlur={false}
-        query={{
-          key: GOOGLE_MAPS_API_KEY,
-          language: "sv",
-          types: "address",
-          ...(locationBias.location
-            ? { location: locationBias.location, radius: locationBias.radius }
-            : {}),
-        }}
-        onPress={(data, details = null) => {
-          if (details?.geometry?.location) {
-            const { lat, lng } = details.geometry.location;
-            onPlaceSelect({ latitude: lat, longitude: lng });
-            Keyboard.dismiss();
-          }
-        }}
-        onFail={(error) => console.error("Autocomplete error:", error)}
-        renderLeftButton={() => (
-          <Image
-            source={{
-              uri: "https://img.icons8.com/ios-filled/50/000000/search--v1.png",
-            }}
-            style={styles.icon}
-          />
-        )}
-        styles={{
-          textInputContainer: styles.textInputContainer,
-          textInput: styles.textInput,
-          listView: styles.listView,
-        }}
-        textInputProps={{
-          placeholderTextColor: "#555",
-        }}
       />
     </View>
   );
-});
+}
 
-export default LocationInput;
-
-const { width } = Dimensions.get("window");
 const styles = StyleSheet.create({
-  overlay: {
+  wrapper: {
     position: "absolute",
     top: Platform.OS === "ios" ? 60 : 40,
-    width: width - 32,
-    alignSelf: "center",
+    width: "90%",
+    alignSelf: "center", // Centera horisontellt
     zIndex: 999,
   },
-  textInputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
+  input: {
+    height: 50,
     backgroundColor: "#fff",
-    borderRadius: 8,
-    height: 48,
-    paddingHorizontal: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  textInput: {
-    flex: 1,
-    height: 40,
+    borderRadius: 25,
+    paddingHorizontal: 20,
     fontSize: 16,
-    color: "#333",
-    marginLeft: 8,
+    width: "100%", // Full bredd inom wrapper
   },
-  listView: {
+  list: {
     backgroundColor: "#fff",
+    marginTop: 5,
     borderRadius: 8,
-    marginTop: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
   },
-  icon: {
-    width: 20,
-    height: 20,
-    tintColor: "#888",
-  },
+  item: { padding: 12, borderBottomWidth: 1, borderBottomColor: "#eee" },
+  main: { fontSize: 16 },
+  secondary: { fontSize: 14, color: "#666" },
 });
