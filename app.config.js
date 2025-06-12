@@ -14,6 +14,7 @@ export default ({ config }) => ({
 
   ios: {
     ...config.ios,
+    bundleIdentifier: "com.yourcompany.lessons", // <-- Lägg till denna!
     config: {
       googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
     },
@@ -26,6 +27,7 @@ export default ({ config }) => ({
   },
 
   android: {
+    package: "com.yourcompany.lessons", // <-- Lägg till denna också!
     ...config.android,
     config: {
       googleMaps: {

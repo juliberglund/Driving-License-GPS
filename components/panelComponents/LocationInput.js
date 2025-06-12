@@ -1,5 +1,3 @@
-// components/PanelComponents/LocationInput.js
-
 import React, {
   forwardRef,
   useImperativeHandle,
@@ -7,70 +5,56 @@ import React, {
   useState,
   useEffect,
 } from "react";
-import { View, StyleSheet, Platform, Image, Keyboard } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Platform,
+  Image,
+  Keyboard,
+  Dimensions,
+} from "react-native";
 import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
 import { GOOGLE_MAPS_API_KEY } from "@env";
 
 const LocationInput = forwardRef(({ currentLocation, onPlaceSelect }, ref) => {
   const autocompleteRef = useRef(null);
-
-  // Lokalt state för att bias:a sökresultaten mot användarens position
   const [locationBias, setLocationBias] = useState({
     location: null,
-    radius: 2000, // i meter
+    radius: 2000,
   });
 
   useEffect(() => {
     if (currentLocation) {
       const { latitude, longitude } = currentLocation;
-      setLocationBias({
-        location: `${latitude},${longitude}`,
-        radius: 2000,
-      });
+      setLocationBias({ location: `${latitude},${longitude}`, radius: 2000 });
     }
   }, [currentLocation]);
 
-  // Exponera endast clear() till parent via ref
   useImperativeHandle(ref, () => ({
     clear: () => {
-      autocompleteRef.current?.clear();
+      autocompleteRef.current?.setAddressText("");
     },
   }));
 
   return (
-    <View style={styles.container}>
+    <View style={styles.overlay}>
       <GooglePlacesAutocomplete
         ref={autocompleteRef}
-        placeholder="Sök här…"
-        fetchDetails={true}
+        placeholder="Sök adress eller plats"
+        fetchDetails
         debounce={200}
         enablePoweredByContainer={false}
         nearbyPlacesAPI="GooglePlacesSearch"
         minLength={2}
-        timeout={10000}
         keyboardShouldPersistTaps="handled"
         listViewDisplayed="auto"
         keepResultsAfterBlur={false}
-        currentLocation={false}
-        predefinedPlaces={[]}
-        predefinedPlacesAlwaysVisible={false}
         query={{
           key: GOOGLE_MAPS_API_KEY,
           language: "sv",
           types: "address",
           ...(locationBias.location
-            ? {
-                location: locationBias.location,
-                radius: locationBias.radius,
-              }
-            : {}),
-        }}
-        GooglePlacesSearchQuery={{
-          rankby: "distance",
-          ...(locationBias.location
-            ? {
-                location: locationBias.location,
-              }
+            ? { location: locationBias.location, radius: locationBias.radius }
             : {}),
         }}
         onPress={(data, details = null) => {
@@ -78,64 +62,25 @@ const LocationInput = forwardRef(({ currentLocation, onPlaceSelect }, ref) => {
             const { lat, lng } = details.geometry.location;
             onPlaceSelect({ latitude: lat, longitude: lng });
             Keyboard.dismiss();
-            // Notera: clear() kallas från parent, så vi behöver inte anropa autofill.clear() här
-          } else {
-            console.log("⚠️ Inga detaljer från API.");
           }
         }}
-        onFail={(error) => {
-          console.log("🚨 Autocomplete‐fel:", error);
-        }}
+        onFail={(error) => console.error("Autocomplete error:", error)}
+        renderLeftButton={() => (
+          <Image
+            source={{
+              uri: "https://img.icons8.com/ios-filled/50/000000/search--v1.png",
+            }}
+            style={styles.icon}
+          />
+        )}
         styles={{
-          // Wrapper för autocomplete, i overlay‐läge
-          container: styles.autocompleteWrapper,
-
-          // Stylning för textInputContainer → helvit, rundade hörn, skugga
-          textInputContainer: {
-            backgroundColor: "#ffffff",
-            borderRadius: 8,
-            marginHorizontal: 16,
-            marginTop: Platform.OS === "ios" ? 60 : 40,
-            shadowColor: "#000000",
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 4,
-            elevation: 3,
-          },
-
-          // Själva TextInput → helvit, rundade hörn
-          textInput: {
-            height: 44,
-            backgroundColor: "#ffffff",
-            borderRadius: 8,
-            paddingHorizontal: 12,
-            fontSize: 16,
-            color: "#000",
-          },
-
-          // Dropdown‐listan
-          listView: {
-            backgroundColor: "#ffffff",
-            borderRadius: 8,
-            marginHorizontal: 16,
-            marginTop: 5,
-            elevation: 3,
-          },
+          textInputContainer: styles.textInputContainer,
+          textInput: styles.textInput,
+          listView: styles.listView,
         }}
         textInputProps={{
-          placeholderTextColor: "#999999",
+          placeholderTextColor: "#555",
         }}
-        renderLeftButton={() => (
-          <View style={styles.leftButtonContainer}>
-            <Image
-              source={{
-                uri: "https://img.icons8.com/ios-filled/50/000000/search--v1.png",
-              }}
-              style={styles.leftIcon}
-              resizeMode="contain"
-            />
-          </View>
-        )}
       />
     </View>
   );
@@ -143,30 +88,48 @@ const LocationInput = forwardRef(({ currentLocation, onPlaceSelect }, ref) => {
 
 export default LocationInput;
 
+const { width } = Dimensions.get("window");
 const styles = StyleSheet.create({
-  container: {
+  overlay: {
     position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
-    backgroundColor: "transparent",
+    top: Platform.OS === "ios" ? 60 : 40,
+    width: width - 32,
+    alignSelf: "center",
+    zIndex: 999,
   },
-  autocompleteWrapper: {
-    flex: 1,
-  },
-  leftButtonContainer: {
-    justifyContent: "center",
+  textInputContainer: {
+    flexDirection: "row",
     alignItems: "center",
-    width: 30,
-    height: 30,
-    marginLeft: 12,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    height: 48,
+    paddingHorizontal: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  leftIcon: {
+  textInput: {
+    flex: 1,
+    height: 40,
+    fontSize: 16,
+    color: "#333",
+    marginLeft: 8,
+  },
+  listView: {
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    marginTop: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  icon: {
     width: 20,
     height: 20,
-    tintColor: "#888888",
-    marginTop: 2,
-    marginTop: 17,
+    tintColor: "#888",
   },
 });
