@@ -17,11 +17,16 @@ export default function PanelButtons({ is3D, onToggleView, onResetCamera }) {
 const styles = StyleSheet.create({
   buttonContainer: {
     position: "absolute",
-    top: 40,
+    bottom: 20,
+    left: 20,
     right: 20,
     backgroundColor: "white",
-    borderRadius: 8,
-    padding: 5,
-    elevation: 5,
+    padding: 10,
+    borderRadius: 10,
+    elevation: 5, // skugga på Android
+    shadowColor: "#000", // skugga på iOS
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
 });

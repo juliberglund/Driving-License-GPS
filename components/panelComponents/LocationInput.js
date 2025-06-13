@@ -54,16 +54,25 @@ const LocationInput = forwardRef(({ currentLocation, onPlaceSelect }, ref) => {
         currentLocation={false}
         predefinedPlaces={[]}
         predefinedPlacesAlwaysVisible={false}
+        // query={{
+        //   key: GOOGLE_MAPS_API_KEY,
+        //   language: "sv",
+        //   types: "address",
+        //   ...(locationBias.location
+        //     ? {
+        //         location: locationBias.location,
+        //         radius: locationBias.radius,
+        //       }
+        //     : {}),
+        // }}
         query={{
           key: GOOGLE_MAPS_API_KEY,
           language: "sv",
-          types: "address",
-          ...(locationBias.location
-            ? {
-                location: locationBias.location,
-                radius: locationBias.radius,
-              }
-            : {}),
+          location: currentLocation
+            ? `${currentLocation.latitude},${currentLocation.longitude}`
+            : undefined,
+          rankby: "distance", // 🧠 Begränsar till nära platser
+          types: "address", // (valfritt) bara adresser
         }}
         GooglePlacesSearchQuery={{
           rankby: "distance",

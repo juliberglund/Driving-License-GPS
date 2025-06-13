@@ -1,9 +1,19 @@
 import React, { useEffect, useRef, useState } from "react";
-import { StyleSheet, View, Dimensions, Platform, Keyboard } from "react-native";
-import MapView from "react-native-maps";
+import {
+  StyleSheet,
+  View,
+  Dimensions,
+  Platform,
+  Keyboard,
+  Button,
+} from "react-native";
+import MapView, { Polyline, Text, TouchableOpacity } from "react-native-maps";
 import * as Location from "expo-location";
+import * as Linking from "expo-linking";
 import PanelButtons from "./panelComponents/PanelButtons";
 import LocationInput from "./panelComponents/LocationInput";
+import polyline from "@mapbox/polyline"; // Installera om du inte har det
+import { GOOGLE_MAPS_API_KEY } from "@env";
 
 export default function GoogleMaps() {
   const mapRef = useRef(null);
@@ -13,6 +23,8 @@ export default function GoogleMaps() {
   const [is3D, setIs3D] = useState(true);
   const [isFollowingUser, setIsFollowingUser] = useState(true);
   const [currentLocation, setCurrentLocation] = useState(null);
+  const [destination, setDestination] = useState(null);
+  const [routeCoords, setRouteCoords] = useState([]);
 
   // 1. Begär plats‐permission en gång när komponenten mountar
   useEffect(() => {
@@ -116,14 +128,47 @@ export default function GoogleMaps() {
   };
 
   // 6. Callback när användaren väljer en plats i sökfältet
+  // const onPlaceSelect = ({ latitude, longitude }) => {
+  //   setIsFollowingUser(false);
+  //   setIs3D(true);
+  //   animateToPosition(latitude, longitude, 0);
+  //   // Töm inputfältet via clear()
+  //   locationInputRef.current?.clear();
+  //   // Dölj tangentbordet
+  //   Keyboard.dismiss();
+  // };
   const onPlaceSelect = ({ latitude, longitude }) => {
     setIsFollowingUser(false);
     setIs3D(true);
     animateToPosition(latitude, longitude, 0);
-    // Töm inputfältet via clear()
+    setDestination({ latitude, longitude });
     locationInputRef.current?.clear();
-    // Dölj tangentbordet
     Keyboard.dismiss();
+
+    if (currentLocation) {
+      fetchRoute(currentLocation, { latitude, longitude });
+    }
+  };
+
+  // Funktion som hämtar rutt
+  const fetchRoute = async (origin, dest) => {
+    const originStr = `${origin.latitude},${origin.longitude}`;
+    const destStr = `${dest.latitude},${dest.longitude}`;
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${originStr}&destination=${destStr}&key=${GOOGLE_MAPS_API_KEY}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.routes.length) {
+      const points = data.routes[0].overview_polyline.points;
+      const coords = polyline.decode(points).map(([lat, lng]) => ({
+        latitude: lat,
+        longitude: lng,
+      }));
+      setRouteCoords(coords);
+    } else {
+      console.warn("Ingen rutt hittades.");
+    }
   };
 
   return (
@@ -145,7 +190,6 @@ export default function GoogleMaps() {
         }}
         onPress={() => {
           Keyboard.dismiss();
-          // Stäng ner autocomplete‐listan genom att tömma texten
           locationInputRef.current?.clear();
           setIsFollowingUser(false);
         }}
@@ -154,7 +198,16 @@ export default function GoogleMaps() {
           Keyboard.dismiss();
           locationInputRef.current?.clear();
         }}
-      />
+      >
+        {/* 👇 Lägg till din Polyline här inne 👇 */}
+        {routeCoords.length > 0 && (
+          <Polyline
+            coordinates={routeCoords}
+            strokeWidth={5}
+            strokeColor="#007AFF"
+          />
+        )}
+      </MapView>
 
       {/* 7B. Sökfältet ovanpå kartan */}
       <LocationInput
@@ -162,6 +215,17 @@ export default function GoogleMaps() {
         currentLocation={currentLocation}
         onPlaceSelect={onPlaceSelect}
       />
+      {routeCoords.length > 0 && (
+        <View style={{ position: "absolute", bottom: 40, alignSelf: "center" }}>
+          <Button
+            title="Starta navigering"
+            onPress={() => {
+              // Här kan du lägga till taligenkänning, instruktioner etc.
+              alert("Navigering påbörjad 🚗");
+            }}
+          />
+        </View>
+      )}
 
       {/* 7C. PanelButtons längst ner */}
       {/* <PanelButtons
