@@ -6,8 +6,10 @@ import {
   Platform,
   Keyboard,
   Button,
+  TouchableOpacity,
+  Text,
 } from "react-native";
-import MapView, { Polyline, Text, TouchableOpacity } from "react-native-maps";
+import MapView, { Polyline } from "react-native-maps";
 import * as Location from "expo-location";
 import * as Linking from "expo-linking";
 import PanelButtons from "./panelComponents/PanelButtons";
@@ -25,6 +27,10 @@ export default function GoogleMaps() {
   const [currentLocation, setCurrentLocation] = useState(null);
   const [destination, setDestination] = useState(null);
   const [routeCoords, setRouteCoords] = useState([]);
+  const [transportMode, setTransportMode] = useState("driving");
+  const [routeInfo, setRouteInfo] = useState(null);
+  const [showStartButton, setShowStartButton] = useState(false);
+  const [showTransportOptions, setShowTransportOptions] = useState(false);
 
   // 1. Begär plats‐permission en gång när komponenten mountar
   useEffect(() => {
@@ -146,15 +152,17 @@ export default function GoogleMaps() {
     Keyboard.dismiss();
 
     if (currentLocation) {
-      fetchRoute(currentLocation, { latitude, longitude });
+      fetchRoute(currentLocation, { latitude, longitude }, transportMode);
     }
+    setShowStartButton(true);
+    setShowTransportOptions(false); // för säkerhets skull
   };
 
   // Funktion som hämtar rutt
-  const fetchRoute = async (origin, dest) => {
+  const fetchRoute = async (origin, dest, mode = "driving") => {
     const originStr = `${origin.latitude},${origin.longitude}`;
     const destStr = `${dest.latitude},${dest.longitude}`;
-    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${originStr}&destination=${destStr}&key=${GOOGLE_MAPS_API_KEY}`;
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${originStr}&destination=${destStr}&mode=${mode}&key=${GOOGLE_MAPS_API_KEY}`;
 
     const response = await fetch(url);
     const data = await response.json();
@@ -166,6 +174,13 @@ export default function GoogleMaps() {
         longitude: lng,
       }));
       setRouteCoords(coords);
+
+      // 👇 Lägg till distans och tid
+      const leg = data.routes[0].legs[0];
+      setRouteInfo({
+        duration: leg.duration.text,
+        distance: leg.distance.text,
+      });
     } else {
       console.warn("Ingen rutt hittades.");
     }
@@ -207,6 +222,23 @@ export default function GoogleMaps() {
             strokeColor="#007AFF"
           />
         )}
+        {routeInfo && (
+          <View
+            style={{
+              position: "absolute",
+              bottom: 110,
+              alignSelf: "center",
+              backgroundColor: "white",
+              padding: 8,
+              borderRadius: 8,
+              elevation: 3,
+            }}
+          >
+            <Text style={{ fontSize: 16 }}>
+              {routeInfo.duration} – {routeInfo.distance}
+            </Text>
+          </View>
+        )}
       </MapView>
 
       {/* 7B. Sökfältet ovanpå kartan */}
@@ -226,6 +258,49 @@ export default function GoogleMaps() {
           />
         </View>
       )}
+      {showStartButton && !showTransportOptions && (
+        <TouchableOpacity
+          style={styles.startButton}
+          onPress={() => {
+            setShowTransportOptions(true);
+            setShowStartButton(false);
+          }}
+        >
+          <Text style={styles.startButtonText}>Starta navigering</Text>
+        </TouchableOpacity>
+      )}
+
+      <View
+        style={{
+          position: "absolute",
+          bottom: 160,
+          flexDirection: "row",
+          justifyContent: "center",
+          alignSelf: "center",
+        }}
+      >
+        {["driving", "walking", "bicycling"].map((mode) => (
+          <TouchableOpacity
+            key={mode}
+            style={{
+              backgroundColor: transportMode === mode ? "#007AFF" : "#eee",
+              padding: 10,
+              borderRadius: 8,
+              marginHorizontal: 5,
+            }}
+            onPress={() => {
+              setTransportMode(mode);
+              if (currentLocation && destination) {
+                fetchRoute(currentLocation, destination, mode);
+              }
+            }}
+          >
+            <Text style={{ color: transportMode === mode ? "white" : "black" }}>
+              {mode === "driving" ? "🚗" : mode === "walking" ? "🚶‍♂️" : "🚴‍♀️"}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       {/* 7C. PanelButtons längst ner */}
       {/* <PanelButtons
@@ -242,5 +317,27 @@ const styles = StyleSheet.create({
   map: {
     width: Dimensions.get("window").width,
     height: Dimensions.get("window").height,
+  },
+  startButton: {
+    backgroundColor: "#007AFF",
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    margin: 10,
+  },
+  startButtonText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  transportOptions: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    padding: 10,
+  },
+  modeButton: {
+    padding: 10,
+    backgroundColor: "#EEE",
+    borderRadius: 8,
   },
 });
