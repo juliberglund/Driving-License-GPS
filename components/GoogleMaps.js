@@ -21,6 +21,7 @@ export default function GoogleMaps() {
   const mapRef = useRef(null);
   const watchRef = useRef(null);
   const locationInputRef = useRef(null);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
   const [is3D, setIs3D] = useState(true);
   const [isFollowingUser, setIsFollowingUser] = useState(true);
@@ -32,6 +33,7 @@ export default function GoogleMaps() {
   const [showStartButton, setShowStartButton] = useState(false);
   const [showTransportOptions, setShowTransportOptions] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState(null);
+  const [navigationMode, setNavigationMode] = useState(false);
 
   // 1. Begär plats‐permission en gång när komponenten mountar
   useEffect(() => {
@@ -182,6 +184,7 @@ export default function GoogleMaps() {
       setRouteInfo({
         duration: leg.duration.text,
         distance: leg.distance.text,
+        steps: leg.steps,
       });
     } else {
       console.warn("Ingen rutt hittades.");
@@ -257,6 +260,50 @@ export default function GoogleMaps() {
           </View>
         )}
       </MapView>
+      {navigationMode && routeInfo?.steps?.length > 0 && (
+        <View style={styles.navigationOverlay}>
+          <Text style={styles.navigationInstruction}>
+            {routeInfo.steps[currentStepIndex]?.html_instructions.replace(
+              /<[^>]*>?/gm,
+              ""
+            )}
+          </Text>
+
+          <View style={{ flexDirection: "row", marginTop: 10 }}>
+            <TouchableOpacity
+              style={{ marginRight: 10 }}
+              disabled={currentStepIndex === 0}
+              onPress={() => setCurrentStepIndex((i) => Math.max(i - 1, 0))}
+            >
+              <Text
+                style={{ color: currentStepIndex === 0 ? "#ccc" : "#007AFF" }}
+              >
+                ◀ Föregående
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              disabled={currentStepIndex === routeInfo.steps.length - 1}
+              onPress={() =>
+                setCurrentStepIndex((i) =>
+                  Math.min(i + 1, routeInfo.steps.length - 1)
+                )
+              }
+            >
+              <Text
+                style={{
+                  color:
+                    currentStepIndex === routeInfo.steps.length - 1
+                      ? "#ccc"
+                      : "#007AFF",
+                }}
+              >
+                Nästa ▶
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* 7B. Sökfältet ovanpå kartan */}
       <LocationInput
@@ -269,8 +316,11 @@ export default function GoogleMaps() {
           <Button
             title="Starta navigering"
             onPress={() => {
-              // Här kan du lägga till taligenkänning, instruktioner etc.
-              alert("Navigering påbörjad 🚗");
+              if (routeInfo?.steps?.length > 0) {
+                setNavigationMode(true);
+              } else {
+                alert("Ingen rutt att navigera på.");
+              }
             }}
           />
         </View>
@@ -306,6 +356,14 @@ export default function GoogleMaps() {
           <Text style={styles.durationText}>
             🕒 {routeInfo.duration} – 📏 {routeInfo.distance}
           </Text>
+          <TouchableOpacity
+            style={styles.navigateButton}
+            onPress={() => {
+              setNavigationMode(true); // vi lägger till detta state
+            }}
+          >
+            <Text style={styles.navigateButtonText}>Starta navigering</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -357,14 +415,9 @@ const styles = StyleSheet.create({
   modeButton: {
     padding: 10,
     backgroundColor: "#EEE",
-    borderRadius: 8,
-  },
-
-  modeButton: {
+    borderRadius: 10,
     alignItems: "center",
     marginHorizontal: 8,
-    padding: 10,
-    borderRadius: 8,
   },
 
   selectedModeButton: {
@@ -409,23 +462,36 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
-  transportIcon: {
-    fontSize: 24,
-  },
-
-  modeButton: {
-    backgroundColor: "#eee",
-    padding: 10,
-    borderRadius: 10,
-  },
-
-  selectedModeButton: {
-    backgroundColor: "#007AFF",
-  },
-
   durationText: {
     fontSize: 14,
     textAlign: "center",
     color: "#333",
+  },
+  navigateButton: {
+    backgroundColor: "#34C759",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  navigateButtonText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  navigationOverlay: {
+    position: "absolute",
+    bottom: 100,
+    backgroundColor: "white",
+    padding: 15,
+    borderRadius: 10,
+    marginHorizontal: 20,
+    elevation: 6,
+    alignSelf: "center",
+  },
+  navigationInstruction: {
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
