@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   Text,
 } from "react-native";
-import MapView, { Polyline } from "react-native-maps";
+import MapView, { Polyline, Marker } from "react-native-maps";
 import * as Location from "expo-location";
 import * as Linking from "expo-linking";
 import PanelButtons from "./panelComponents/PanelButtons";
@@ -31,6 +31,7 @@ export default function GoogleMaps() {
   const [routeInfo, setRouteInfo] = useState(null);
   const [showStartButton, setShowStartButton] = useState(false);
   const [showTransportOptions, setShowTransportOptions] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState(null);
 
   // 1. Begär plats‐permission en gång när komponenten mountar
   useEffect(() => {
@@ -143,11 +144,12 @@ export default function GoogleMaps() {
   //   // Dölj tangentbordet
   //   Keyboard.dismiss();
   // };
-  const onPlaceSelect = ({ latitude, longitude }) => {
+  const onPlaceSelect = ({ latitude, longitude, address }) => {
     setIsFollowingUser(false);
     setIs3D(true);
     animateToPosition(latitude, longitude, 0);
     setDestination({ latitude, longitude });
+    setSelectedAddress(address);
     locationInputRef.current?.clear();
     Keyboard.dismiss();
 
@@ -155,7 +157,7 @@ export default function GoogleMaps() {
       fetchRoute(currentLocation, { latitude, longitude }, transportMode);
     }
     setShowStartButton(true);
-    setShowTransportOptions(false); // för säkerhets skull
+    setShowTransportOptions(false);
   };
 
   // Funktion som hämtar rutt
@@ -194,9 +196,9 @@ export default function GoogleMaps() {
         style={styles.map}
         provider="google"
         showsUserLocation={true}
-        showsTraffic={false}
+        showsTraffic={true}
         showsBuildings={true}
-        followsUserLocation={false}
+        followsUserLocation={true}
         initialRegion={{
           latitude: 59.3293,
           longitude: 18.0686,
@@ -220,6 +222,21 @@ export default function GoogleMaps() {
             coordinates={routeCoords}
             strokeWidth={5}
             strokeColor="#007AFF"
+          />
+        )}
+        {/* 🔴 Din plats */}
+        {currentLocation && (
+          <Marker
+            coordinate={currentLocation}
+            pinColor="red"
+            title="Min plats"
+          />
+        )}
+        {destination && (
+          <Marker
+            coordinate={destination}
+            pinColor="green"
+            title="Destination"
           />
         )}
         {routeInfo && (
@@ -258,6 +275,40 @@ export default function GoogleMaps() {
           />
         </View>
       )}
+      {selectedAddress && routeInfo && (
+        <View style={styles.routeInfoPanel}>
+          <Text style={styles.panelHeader}>Färdbeskrivning</Text>
+          <Text style={styles.routeText}>Min plats till</Text>
+          <Text style={styles.destinationText}>{selectedAddress}</Text>
+
+          <View style={styles.transportOptionsRow}>
+            {["driving", "walking", "bicycling"].map((mode) => (
+              <TouchableOpacity
+                key={mode}
+                style={[
+                  styles.modeButton,
+                  transportMode === mode && styles.selectedModeButton,
+                ]}
+                onPress={() => {
+                  setTransportMode(mode);
+                  if (currentLocation && destination) {
+                    fetchRoute(currentLocation, destination, mode);
+                  }
+                }}
+              >
+                <Text style={styles.transportIcon}>
+                  {mode === "driving" ? "🚗" : mode === "walking" ? "🚶‍♂️" : "🚴‍♀️"}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.durationText}>
+            🕒 {routeInfo.duration} – 📏 {routeInfo.distance}
+          </Text>
+        </View>
+      )}
+
       {showStartButton && !showTransportOptions && (
         <TouchableOpacity
           style={styles.startButton}
@@ -269,38 +320,6 @@ export default function GoogleMaps() {
           <Text style={styles.startButtonText}>Starta navigering</Text>
         </TouchableOpacity>
       )}
-
-      <View
-        style={{
-          position: "absolute",
-          bottom: 160,
-          flexDirection: "row",
-          justifyContent: "center",
-          alignSelf: "center",
-        }}
-      >
-        {["driving", "walking", "bicycling"].map((mode) => (
-          <TouchableOpacity
-            key={mode}
-            style={{
-              backgroundColor: transportMode === mode ? "#007AFF" : "#eee",
-              padding: 10,
-              borderRadius: 8,
-              marginHorizontal: 5,
-            }}
-            onPress={() => {
-              setTransportMode(mode);
-              if (currentLocation && destination) {
-                fetchRoute(currentLocation, destination, mode);
-              }
-            }}
-          >
-            <Text style={{ color: transportMode === mode ? "white" : "black" }}>
-              {mode === "driving" ? "🚗" : mode === "walking" ? "🚶‍♂️" : "🚴‍♀️"}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
 
       {/* 7C. PanelButtons längst ner */}
       {/* <PanelButtons
@@ -339,5 +358,74 @@ const styles = StyleSheet.create({
     padding: 10,
     backgroundColor: "#EEE",
     borderRadius: 8,
+  },
+
+  modeButton: {
+    alignItems: "center",
+    marginHorizontal: 8,
+    padding: 10,
+    borderRadius: 8,
+  },
+
+  selectedModeButton: {
+    backgroundColor: "#007AFF",
+  },
+
+  transportIcon: {
+    fontSize: 24,
+  },
+  routeInfoPanel: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "white",
+    padding: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    elevation: 10,
+  },
+
+  panelHeader: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 5,
+  },
+
+  routeText: {
+    fontSize: 14,
+    color: "#444",
+  },
+
+  destinationText: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 15,
+  },
+
+  transportOptionsRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: 10,
+  },
+
+  transportIcon: {
+    fontSize: 24,
+  },
+
+  modeButton: {
+    backgroundColor: "#eee",
+    padding: 10,
+    borderRadius: 10,
+  },
+
+  selectedModeButton: {
+    backgroundColor: "#007AFF",
+  },
+
+  durationText: {
+    fontSize: 14,
+    textAlign: "center",
+    color: "#333",
   },
 });
