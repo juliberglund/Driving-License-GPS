@@ -6,7 +6,7 @@ import DrivingLesson from "./DrivingLesson";
 import Signs from "./Signs";
 import SignsCategory from "./SignsCategory";
 import GoogleMaps from "./GoogleMaps";
-import LocationInput from "./panelComponents/LocationInput";
+import TestPlaces from "./TestPlace";
 
 export {
   StartScreen,
@@ -17,5 +17,5 @@ export {
   Signs,
   SignsCategory,
   GoogleMaps,
-  LocationInput,
+  TestPlaces,
 };

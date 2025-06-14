@@ -3,16 +3,22 @@ import "dotenv/config";
 export default ({ config }) => ({
   ...config,
   name: "Driving lessons app",
-  slug: "GoogleLessons",
+  slug: "Lessons",
   version: "1.0.0",
+
+  name: "ChatVoice",
+  slug: "ChatVoice",
+  extra: {
+    openAiApiKey: process.env.OPENAI_API_KEY,
+  },
 
   ios: {
     ...config.ios,
+    bundleIdentifier: "com.yourcompany.lessons", // <-- Lägg till denna!
     config: {
       googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
     },
     infoPlist: {
-      // Krävs för att fråga om plats-behörighet på iOS
       NSLocationWhenInUseUsageDescription:
         "Appen behöver din plats för att visa kartan.",
       NSLocationAlwaysAndWhenInUseUsageDescription:
@@ -21,6 +27,7 @@ export default ({ config }) => ({
   },
 
   android: {
+    package: "com.yourcompany.lessons", // <-- Lägg till denna också!
     ...config.android,
     config: {
       googleMaps: {

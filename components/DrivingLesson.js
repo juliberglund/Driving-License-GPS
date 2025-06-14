@@ -5,9 +5,7 @@ import * as Location from "expo-location";
 import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
 import { GOOGLE_MAPS_API_KEY } from "@env";
 import "react-native-get-random-values";
-import * as Linking from "expo-linking";
-import { Button } from "react-native";
-import * as Speech from "expo-speech";
+import polyline from "@mapbox/polyline";
 
 export default function MapScreen() {
   const [region, setRegion] = useState(null);
@@ -16,7 +14,6 @@ export default function MapScreen() {
   const mapRef = useRef(null);
   const placesRef = useRef();
   const [selectedDestination, setSelectedDestination] = useState(null);
-  const [directions, setDirections] = useState([]);
 
   useEffect(() => {
     (async () => {
@@ -90,20 +87,6 @@ export default function MapScreen() {
       const data = await response.json();
 
       if (data.routes.length) {
-        const steps = data.routes[0].legs[0].steps;
-
-        const directions = steps.map((step) => ({
-          instruction: step.html_instructions,
-          distance: step.distance.text,
-          duration: step.duration.text,
-        }));
-
-        setDirections(directions);
-        if (directions.length > 0) {
-          const text = directions[0].instruction.replace(/<[^>]+>/g, ""); // Ta bort HTML
-          Speech.speak(text);
-        }
-
         const points = data.routes[0].overview_polyline.points;
         const coords = polyline.decode(points).map(([lat, lng]) => ({
           latitude: lat,
@@ -116,11 +99,6 @@ export default function MapScreen() {
     } catch (err) {
       console.error("Fel vid Directions API:", err);
     }
-  };
-
-  const openGoogleMapsNavigation = (origin, destination) => {
-    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&travelmode=driving`;
-    Linking.openURL(url);
   };
 
   const handleMapPress = async (coordinate) => {
@@ -197,38 +175,6 @@ export default function MapScreen() {
           onFocus: () => {},
         }}
       />
-      {userLocation && selectedDestination && (
-        <View style={{ position: "absolute", bottom: 40, alignSelf: "center" }}>
-          <Button
-            title="Starta navigering"
-            onPress={() => {
-              directions.forEach((step, i) => {
-                setTimeout(() => {
-                  const cleaned = step.instruction.replace(/<[^>]+>/g, "");
-                  Speech.speak(`Steg ${i + 1}: ${cleaned}`);
-                }, i * 4000); // talar ett steg var 4:e sekund
-              });
-            }}
-          />
-        </View>
-      )}
-
-      {directions.length > 0 && (
-        <View
-          style={{
-            position: "absolute",
-            bottom: 20,
-            backgroundColor: "white",
-            padding: 10,
-          }}
-        >
-          {directions.map((step, i) => (
-            <Text style={{ marginBottom: 5 }}>
-              ➤ {step.instruction.replace(/<[^>]+>/g, "")} ({step.distance})
-            </Text>
-          ))}
-        </View>
-      )}
     </View>
   );
 }

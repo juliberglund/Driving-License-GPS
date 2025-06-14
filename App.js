@@ -11,6 +11,7 @@ import {
   SignsCategory,
   GoogleMaps,
   LocationInput,
+  TestPlaces,
 } from "./components/importFil";
 
 const Stack = createNativeStackNavigator();

@@ -1,131 +1,172 @@
-import "react-native-get-random-values";
-
-import React from "react";
-import { View, StyleSheet, Platform, Image } from "react-native";
-import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
+import React, { useState, useEffect, useRef } from "react";
+import {
+  View,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  Text,
+  StyleSheet,
+  Alert,
+  Platform,
+  Keyboard,
+} from "react-native";
+import * as Location from "expo-location";
 import { GOOGLE_MAPS_API_KEY } from "@env";
 
-export default function TestPlaces() {
+export default function LocationInput({ onPlaceSelect }) {
+  const [query, setQuery] = useState("");
+  const [predictions, setPredictions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
+  const inputRef = useRef(null);
+
+  // Hämta användarens position vid mount
+  useEffect(() => {
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") return;
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setUserLocation({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      });
+    })();
+  }, []);
+
+  // Debounce & sök
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      if (query.length > 0) searchPlaces(query);
+      else setPredictions([]);
+    }, 200);
+    return () => clearTimeout(handle);
+  }, [query, userLocation]);
+
+  async function searchPlaces(input) {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        input,
+        key: GOOGLE_MAPS_API_KEY,
+        language: "sv",
+        components: "country:se",
+        types: "geocode|establishment",
+      });
+      if (userLocation) {
+        params.append(
+          "location",
+          `${userLocation.latitude},${userLocation.longitude}`
+        );
+        params.append("radius", "50000");
+      }
+      const res = await fetch(
+        `https://maps.googleapis.com/maps/api/place/autocomplete/json?${params}`
+      );
+      const data = await res.json();
+      if (data.status === "OK") {
+        setPredictions(
+          data.predictions.map((p) => ({
+            id: p.place_id,
+            description: p.description,
+            mainText: p.structured_formatting.main_text,
+            secondaryText: p.structured_formatting.secondary_text,
+          }))
+        );
+      } else {
+        setPredictions([]);
+      }
+    } catch (e) {
+      console.error(e);
+      setPredictions([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSelect(item) {
+    setQuery(item.description);
+    setPredictions([]);
+    Keyboard.dismiss();
+    const params = new URLSearchParams({
+      place_id: item.id,
+      key: GOOGLE_MAPS_API_KEY,
+      fields: "geometry",
+      language: "sv",
+    });
+    const res = await fetch(
+      `https://maps.googleapis.com/maps/api/place/details/json?${params}`
+    );
+    const data = await res.json();
+    if (data.status === "OK") {
+      const { lat, lng } = data.result.geometry.location;
+      onPlaceSelect({ latitude: lat, longitude: lng });
+    } else {
+      Alert.alert("Kunde inte hämta platsdetaljer");
+    }
+  }
+
+  const renderItem = ({ item }) => (
+    <TouchableOpacity style={styles.item} onPress={() => handleSelect(item)}>
+      <Text style={styles.main}>{item.mainText}</Text>
+      {item.secondaryText && (
+        <Text style={styles.secondary}>{item.secondaryText}</Text>
+      )}
+    </TouchableOpacity>
+  );
+
   return (
-    <View style={styles.container}>
-      <GooglePlacesAutocomplete
-        placeholder="Sök adress (test)…"
-        fetchDetails={true}
-        debounce={200}
-        enablePoweredByContainer={false}
-        nearbyPlacesAPI="GooglePlacesSearch"
-        minLength={2}
-        timeout={10000}
-        keyboardShouldPersistTaps="handled"
-        listViewDisplayed="auto"
-        keepResultsAfterBlur={false}
-        currentLocation={false}
-        predefinedPlaces={[]}
-        predefinedPlacesAlwaysVisible={false}
-        query={{
-          key: GOOGLE_MAPS_API_KEY,
-          language: "sv",
-          types: "address",
+    <View style={styles.wrapper}>
+      <TextInput
+        ref={inputRef}
+        style={styles.input}
+        placeholder="Sök adress eller plats..."
+        value={query}
+        onChangeText={setQuery}
+        returnKeyType="search"
+        onSubmitEditing={() => {
+          setPredictions([]);
+          Keyboard.dismiss();
         }}
-        GooglePlacesSearchQuery={{
-          rankby: "distance",
-          radius: 1000,
-        }}
-        onPress={(data, details = null) => {
-          // När användaren väljer ett förslag:
-          if (details && details.geometry && details.geometry.location) {
-            const { lat, lng } = details.geometry.location;
-            console.log("🏷️ Vald adress:", data.description);
-            console.log("📍 Koordinater:", { latitude: lat, longitude: lng });
-          } else {
-            console.log("⚠️ Inga detaljer från API.");
-          }
-        }}
-        onFail={(error) => {
-          console.log("🚨 Autocomplete-fel:", error);
-        }}
-        // requestUrl brukar inte vara nödvändigt i React Native, men om du behöver det:
-        // (kan kommenteras ut eller tas bort)
-        requestUrl={{
-          url: "https://maps.googleapis.com/maps/api",
-          useOnPlatform: "all",
-        }}
-        renderLeftButton={() => (
-          <View style={styles.leftButtonContainer}>
-            <Image
-              source={{
-                uri: "https://img.icons8.com/ios-filled/50/000000/search--v1.png",
-              }}
-              style={styles.leftIcon}
-              resizeMode="contain"
-            />
-          </View>
-        )}
-        styles={{
-          container: styles.autocompleteContainer,
-
-          //textinput‐behållaren ska se ut
-          textInputContainer: {
-            backgroundColor: "#f9f9f9",
-            borderRadius: 20,
-            marginHorizontal: 20,
-            marginTop: Platform.OS === "ios" ? 60 : 40,
-            shadowColor: "#d4d4d4",
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.3,
-            shadowRadius: 4,
-            elevation: 5,
-          },
-
-          // textinput‐fältet ska se ut
-          textInput: {
-            height: 44,
-            backgroundColor: "#FFF",
-            borderRadius: 5,
-            paddingHorizontal: 12,
-            fontSize: 16,
-            color: "#000",
-          },
-
-          // Hur listvy‐dropdownen ska se ut
-          listView: {
-            backgroundColor: "#FFF",
-            borderRadius: 5,
-            marginTop: 5,
-            elevation: 3,
-          },
-        }}
-        textInputProps={{
-          placeholderTextColor: "gray",
-        }}
+        // onBlur kvar som fallback om användaren tappar fokus
+        onBlur={() => setPredictions([])}
       />
+      {predictions.length > 0 && (
+        <FlatList
+          data={predictions}
+          keyExtractor={(i) => i.id}
+          renderItem={renderItem}
+          style={styles.list}
+          keyboardShouldPersistTaps="handled"
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#ffffff",
+  wrapper: {
+    position: "absolute",
+    top: Platform.OS === "ios" ? 60 : 40,
+    width: "90%",
+    alignSelf: "center",
+    zIndex: 999,
   },
-
-  // Stylingen för “container” som används av GooglePlacesAutocomplete
-  autocompleteContainer: {
-    flex: 1,
+  input: {
+    height: 50,
+    backgroundColor: "#fff",
+    borderRadius: 25,
+    paddingHorizontal: 20,
+    fontSize: 16,
+    width: "100%",
   },
-
-  // Behållare för sök‐ikonen till vänster i textfältet
-  leftButtonContainer: {
-    justifyContent: "center",
-    alignItems: "center",
-    width: 30,
-    height: 30,
-    marginLeft: 15,
+  list: {
+    backgroundColor: "#fff",
+    marginTop: 5,
+    borderRadius: 8,
   },
-
-  leftIcon: {
-    width: 24,
-    height: 24,
-    tintColor: "gray",
-  },
+  item: { padding: 12, borderBottomWidth: 1, borderBottomColor: "#eee" },
+  main: { fontSize: 16 },
+  secondary: { fontSize: 14, color: "#666" },
 });
