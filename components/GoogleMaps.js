@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet, View, Dimensions, Platform, Keyboard } from "react-native";
-import MapView from "react-native-maps";
+import MapView, { Polyline, Marker } from "react-native-maps";
 import * as Location from "expo-location";
 import PanelButtons from "./panelComponents/PanelButtons";
 import LocationInput from "./panelComponents/LocationInput";
+import { GOOGLE_MAPS_API_KEY } from "@env";
 
 export default function GoogleMaps() {
   const mapRef = useRef(null);
@@ -13,6 +14,10 @@ export default function GoogleMaps() {
   const [is3D, setIs3D] = useState(true);
   const [isFollowingUser, setIsFollowingUser] = useState(true);
   const [currentLocation, setCurrentLocation] = useState(null);
+
+  // Nya state för rutt
+  const [routeCoordinates, setRouteCoordinates] = useState([]);
+  const [destinationMarker, setDestinationMarker] = useState(null);
 
   // 1. Begär plats‐permission en gång när komponenten mountar
   useEffect(() => {
@@ -87,7 +92,85 @@ export default function GoogleMaps() {
     mapRef.current.animateCamera(cameraConfig, { duration: 1000 });
   };
 
-  // 4. Växla mellan 3D‐ och 2D‐vy
+  // 4. Hämta rutt från Google Directions API
+  const fetchRoute = async (start, destination) => {
+    try {
+      const origin = `${start.latitude},${start.longitude}`;
+      const dest = `${destination.latitude},${destination.longitude}`;
+
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${dest}&key=${GOOGLE_MAPS_API_KEY}&mode=driving&language=sv`
+      );
+
+      const data = await response.json();
+
+      if (data.routes && data.routes.length > 0) {
+        const route = data.routes[0];
+        const coordinates = decodePolyline(route.overview_polyline.points);
+        setRouteCoordinates(coordinates);
+
+        // Sätt bara destination marker (ingen start marker)
+        setDestinationMarker(destination);
+
+        // Zooma för att visa hela rutten
+        if (mapRef.current) {
+          mapRef.current.fitToCoordinates([start, destination], {
+            edgePadding: { top: 100, right: 50, bottom: 150, left: 50 },
+            animated: true,
+          });
+        }
+
+        console.log(
+          "Rutt hämtad:",
+          data.routes[0].legs[0].distance.text,
+          data.routes[0].legs[0].duration.text
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching route:", error);
+    }
+  };
+
+  // 5. Decode Google polyline
+  const decodePolyline = (encoded) => {
+    let points = [];
+    let index = 0,
+      lat = 0,
+      lng = 0;
+
+    while (index < encoded.length) {
+      let shift = 0,
+        result = 0;
+      let byte;
+      do {
+        byte = encoded.charCodeAt(index++) - 63;
+        result |= (byte & 0x1f) << shift;
+        shift += 5;
+      } while (byte >= 0x20);
+
+      let deltaLat = (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
+      lat += deltaLat;
+
+      shift = 0;
+      result = 0;
+      do {
+        byte = encoded.charCodeAt(index++) - 63;
+        result |= (byte & 0x1f) << shift;
+        shift += 5;
+      } while (byte >= 0x20);
+
+      let deltaLng = (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
+      lng += deltaLng;
+
+      points.push({
+        latitude: lat * 1e-5,
+        longitude: lng * 1e-5,
+      });
+    }
+    return points;
+  };
+
+  // 6. Växla mellan 3D‐ och 2D‐vy
   const toggleView = () => {
     setIs3D((prev) => {
       const newIs3D = !prev;
@@ -103,7 +186,7 @@ export default function GoogleMaps() {
     });
   };
 
-  // 5. Återställ kameran till användarens position
+  // 7. Återställ kameran till användarens position
   const resetCamera = () => {
     if (currentLocation) {
       setIsFollowingUser(true);
@@ -115,20 +198,33 @@ export default function GoogleMaps() {
     }
   };
 
-  // 6. Callback när användaren väljer en plats i sökfältet
-  const onPlaceSelect = ({ latitude, longitude }) => {
-    setIsFollowingUser(false);
-    setIs3D(true);
-    animateToPosition(latitude, longitude, 0);
-    // Töm inputfältet via clear()
-    locationInputRef.current?.clear();
+  // 8. Callback när användaren väljer en plats i sökfältet
+  const onPlaceSelect = (routeData) => {
+    if (routeData === null) {
+      // Avsluta rutt-läge
+      setRouteCoordinates([]);
+      setDestinationMarker(null);
+      setIsFollowingUser(true);
+      if (currentLocation) {
+        animateToPosition(
+          currentLocation.latitude,
+          currentLocation.longitude,
+          currentLocation.heading
+        );
+      }
+    } else {
+      // Ny rutt satt
+      setIsFollowingUser(false);
+      fetchRoute(routeData.start, routeData.destination);
+    }
+
     // Dölj tangentbordet
     Keyboard.dismiss();
   };
 
   return (
     <View style={styles.container}>
-      {/* 7A. MapView med onPress/onPanDrag som stänger ner input */}
+      {/* MapView */}
       <MapView
         ref={mapRef}
         style={styles.map}
@@ -152,18 +248,36 @@ export default function GoogleMaps() {
         onPanDrag={() => {
           setIsFollowingUser(false);
           Keyboard.dismiss();
-          locationInputRef.current?.clear();
         }}
-      />
+      >
+        {/* Destination marker - bara röd marker för destination */}
+        {destinationMarker && (
+          <Marker
+            coordinate={destinationMarker}
+            title="Destination"
+            pinColor="red"
+          />
+        )}
 
-      {/* 7B. Sökfältet ovanpå kartan */}
+        {/* Route polyline */}
+        {routeCoordinates.length > 0 && (
+          <Polyline
+            coordinates={routeCoordinates}
+            strokeColor="#4285F4"
+            strokeWidth={5}
+            strokePattern={[1]}
+          />
+        )}
+      </MapView>
+
+      {/* Sökfältet ovanpå kartan */}
       <LocationInput
         ref={locationInputRef}
         currentLocation={currentLocation}
         onPlaceSelect={onPlaceSelect}
       />
 
-      {/* 7C. PanelButtons längst ner */}
+      {/* PanelButtons längst ner */}
       {/* <PanelButtons
         is3D={is3D}
         onToggleView={toggleView}
