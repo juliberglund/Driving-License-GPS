@@ -1,23 +1,39 @@
 import React, { useEffect, useRef, useState } from "react";
-import { StyleSheet, View, Dimensions, Platform, Keyboard } from "react-native";
+import {
+  StyleSheet,
+  View,
+  Dimensions,
+  Platform,
+  Keyboard,
+  Button,
+  TouchableOpacity,
+  Text,
+} from "react-native";
 import MapView, { Polyline, Marker } from "react-native-maps";
 import * as Location from "expo-location";
+import * as Linking from "expo-linking";
 import PanelButtons from "./panelComponents/PanelButtons";
 import LocationInput from "./panelComponents/LocationInput";
+import polyline from "@mapbox/polyline"; // Installera om du inte har det
 import { GOOGLE_MAPS_API_KEY } from "@env";
 
-export default function GoogleMaps() {
+export default function GoogleMaps({ showSearch = true }) {
   const mapRef = useRef(null);
   const watchRef = useRef(null);
   const locationInputRef = useRef(null);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
   const [is3D, setIs3D] = useState(true);
   const [isFollowingUser, setIsFollowingUser] = useState(true);
   const [currentLocation, setCurrentLocation] = useState(null);
-
-  // Nya state för rutt
-  const [routeCoordinates, setRouteCoordinates] = useState([]);
-  const [destinationMarker, setDestinationMarker] = useState(null);
+  const [destination, setDestination] = useState(null);
+  const [routeCoords, setRouteCoords] = useState([]);
+  const [transportMode, setTransportMode] = useState("driving");
+  const [routeInfo, setRouteInfo] = useState(null);
+  const [showStartButton, setShowStartButton] = useState(false);
+  const [showTransportOptions, setShowTransportOptions] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState(null);
+  const [navigationMode, setNavigationMode] = useState(false);
 
   // 1. Begär plats‐permission en gång när komponenten mountar
   useEffect(() => {
@@ -92,85 +108,7 @@ export default function GoogleMaps() {
     mapRef.current.animateCamera(cameraConfig, { duration: 1000 });
   };
 
-  // 4. Hämta rutt från Google Directions API
-  const fetchRoute = async (start, destination) => {
-    try {
-      const origin = `${start.latitude},${start.longitude}`;
-      const dest = `${destination.latitude},${destination.longitude}`;
-
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${dest}&key=${GOOGLE_MAPS_API_KEY}&mode=driving&language=sv`
-      );
-
-      const data = await response.json();
-
-      if (data.routes && data.routes.length > 0) {
-        const route = data.routes[0];
-        const coordinates = decodePolyline(route.overview_polyline.points);
-        setRouteCoordinates(coordinates);
-
-        // Sätt bara destination marker (ingen start marker)
-        setDestinationMarker(destination);
-
-        // Zooma för att visa hela rutten
-        if (mapRef.current) {
-          mapRef.current.fitToCoordinates([start, destination], {
-            edgePadding: { top: 100, right: 50, bottom: 150, left: 50 },
-            animated: true,
-          });
-        }
-
-        console.log(
-          "Rutt hämtad:",
-          data.routes[0].legs[0].distance.text,
-          data.routes[0].legs[0].duration.text
-        );
-      }
-    } catch (error) {
-      console.error("Error fetching route:", error);
-    }
-  };
-
-  // 5. Decode Google polyline
-  const decodePolyline = (encoded) => {
-    let points = [];
-    let index = 0,
-      lat = 0,
-      lng = 0;
-
-    while (index < encoded.length) {
-      let shift = 0,
-        result = 0;
-      let byte;
-      do {
-        byte = encoded.charCodeAt(index++) - 63;
-        result |= (byte & 0x1f) << shift;
-        shift += 5;
-      } while (byte >= 0x20);
-
-      let deltaLat = (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
-      lat += deltaLat;
-
-      shift = 0;
-      result = 0;
-      do {
-        byte = encoded.charCodeAt(index++) - 63;
-        result |= (byte & 0x1f) << shift;
-        shift += 5;
-      } while (byte >= 0x20);
-
-      let deltaLng = (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
-      lng += deltaLng;
-
-      points.push({
-        latitude: lat * 1e-5,
-        longitude: lng * 1e-5,
-      });
-    }
-    return points;
-  };
-
-  // 6. Växla mellan 3D‐ och 2D‐vy
+  // 4. Växla mellan 3D‐ och 2D‐vy
   const toggleView = () => {
     setIs3D((prev) => {
       const newIs3D = !prev;
@@ -186,7 +124,7 @@ export default function GoogleMaps() {
     });
   };
 
-  // 7. Återställ kameran till användarens position
+  // 5. Återställ kameran till användarens position
   const resetCamera = () => {
     if (currentLocation) {
       setIsFollowingUser(true);
@@ -198,41 +136,72 @@ export default function GoogleMaps() {
     }
   };
 
-  // 8. Callback när användaren väljer en plats i sökfältet
-  const onPlaceSelect = (routeData) => {
-    if (routeData === null) {
-      // Avsluta rutt-läge
-      setRouteCoordinates([]);
-      setDestinationMarker(null);
-      setIsFollowingUser(true);
-      if (currentLocation) {
-        animateToPosition(
-          currentLocation.latitude,
-          currentLocation.longitude,
-          currentLocation.heading
-        );
-      }
-    } else {
-      // Ny rutt satt
-      setIsFollowingUser(false);
-      fetchRoute(routeData.start, routeData.destination);
-    }
-
-    // Dölj tangentbordet
+  // 6. Callback när användaren väljer en plats i sökfältet
+  // const onPlaceSelect = ({ latitude, longitude }) => {
+  //   setIsFollowingUser(false);
+  //   setIs3D(true);
+  //   animateToPosition(latitude, longitude, 0);
+  //   // Töm inputfältet via clear()
+  //   locationInputRef.current?.clear();
+  //   // Dölj tangentbordet
+  //   Keyboard.dismiss();
+  // };
+  const onPlaceSelect = ({ latitude, longitude, address }) => {
+    setIsFollowingUser(false);
+    setIs3D(true);
+    animateToPosition(latitude, longitude, 0);
+    setDestination({ latitude, longitude });
+    setSelectedAddress(address);
+    locationInputRef.current?.clear();
     Keyboard.dismiss();
+
+    if (currentLocation) {
+      fetchRoute(currentLocation, { latitude, longitude }, transportMode);
+    }
+    setShowStartButton(true);
+    setShowTransportOptions(false);
+  };
+
+  // Funktion som hämtar rutt
+  const fetchRoute = async (origin, dest, mode = "driving") => {
+    const originStr = `${origin.latitude},${origin.longitude}`;
+    const destStr = `${dest.latitude},${dest.longitude}`;
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${originStr}&destination=${destStr}&mode=${mode}&key=${GOOGLE_MAPS_API_KEY}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.routes.length) {
+      const points = data.routes[0].overview_polyline.points;
+      const coords = polyline.decode(points).map(([lat, lng]) => ({
+        latitude: lat,
+        longitude: lng,
+      }));
+      setRouteCoords(coords);
+
+      // 👇 Lägg till distans och tid
+      const leg = data.routes[0].legs[0];
+      setRouteInfo({
+        duration: leg.duration.text,
+        distance: leg.distance.text,
+        steps: leg.steps,
+      });
+    } else {
+      console.warn("Ingen rutt hittades.");
+    }
   };
 
   return (
     <View style={styles.container}>
-      {/* MapView */}
+      {/* 7A. MapView med onPress/onPanDrag som stänger ner input */}
       <MapView
         ref={mapRef}
         style={styles.map}
         provider="google"
         showsUserLocation={true}
-        showsTraffic={false}
+        showsTraffic={true}
         showsBuildings={true}
-        followsUserLocation={false}
+        followsUserLocation={true}
         initialRegion={{
           latitude: 59.3293,
           longitude: 18.0686,
@@ -241,43 +210,176 @@ export default function GoogleMaps() {
         }}
         onPress={() => {
           Keyboard.dismiss();
-          // Stäng ner autocomplete‐listan genom att tömma texten
           locationInputRef.current?.clear();
           setIsFollowingUser(false);
         }}
         onPanDrag={() => {
           setIsFollowingUser(false);
           Keyboard.dismiss();
+          locationInputRef.current?.clear();
         }}
       >
-        {/* Destination marker - bara röd marker för destination */}
-        {destinationMarker && (
-          <Marker
-            coordinate={destinationMarker}
-            title="Destination"
-            pinColor="red"
+        {/* 👇 Lägg till din Polyline här inne 👇 */}
+        {routeCoords.length > 0 && (
+          <Polyline
+            coordinates={routeCoords}
+            strokeWidth={5}
+            strokeColor="#007AFF"
           />
         )}
-
-        {/* Route polyline */}
-        {routeCoordinates.length > 0 && (
-          <Polyline
-            coordinates={routeCoordinates}
-            strokeColor="#4285F4"
-            strokeWidth={5}
-            strokePattern={[1]}
+        {/* 🔴 Din plats */}
+        {currentLocation && (
+          <Marker
+            coordinate={currentLocation}
+            pinColor="red"
+            title="Min plats"
           />
+        )}
+        {destination && (
+          <Marker
+            coordinate={destination}
+            pinColor="green"
+            title="Destination"
+          />
+        )}
+        {routeInfo && (
+          <View
+            style={{
+              position: "absolute",
+              bottom: 110,
+              alignSelf: "center",
+              backgroundColor: "white",
+              padding: 8,
+              borderRadius: 8,
+              elevation: 3,
+            }}
+          >
+            <Text style={{ fontSize: 16 }}>
+              {routeInfo.duration} – {routeInfo.distance}
+            </Text>
+          </View>
         )}
       </MapView>
+      {navigationMode && routeInfo?.steps?.length > 0 && (
+        <View style={styles.navigationOverlay}>
+          <Text style={styles.navigationInstruction}>
+            {routeInfo.steps[currentStepIndex]?.html_instructions.replace(
+              /<[^>]*>?/gm,
+              ""
+            )}
+          </Text>
 
-      {/* Sökfältet ovanpå kartan */}
+          <View style={{ flexDirection: "row", marginTop: 10 }}>
+            <TouchableOpacity
+              style={{ marginRight: 10 }}
+              disabled={currentStepIndex === 0}
+              onPress={() => setCurrentStepIndex((i) => Math.max(i - 1, 0))}
+            >
+              <Text
+                style={{ color: currentStepIndex === 0 ? "#ccc" : "#007AFF" }}
+              >
+                ◀ Föregående
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              disabled={currentStepIndex === routeInfo.steps.length - 1}
+              onPress={() =>
+                setCurrentStepIndex((i) =>
+                  Math.min(i + 1, routeInfo.steps.length - 1)
+                )
+              }
+            >
+              <Text
+                style={{
+                  color:
+                    currentStepIndex === routeInfo.steps.length - 1
+                      ? "#ccc"
+                      : "#007AFF",
+                }}
+              >
+                Nästa ▶
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* 7B. Sökfältet ovanpå kartan */}
       <LocationInput
         ref={locationInputRef}
         currentLocation={currentLocation}
         onPlaceSelect={onPlaceSelect}
       />
+      {routeCoords.length > 0 && (
+        <View style={{ position: "absolute", bottom: 40, alignSelf: "center" }}>
+          <Button
+            title="Starta navigering"
+            onPress={() => {
+              if (routeInfo?.steps?.length > 0) {
+                setNavigationMode(true);
+              } else {
+                alert("Ingen rutt att navigera på.");
+              }
+            }}
+          />
+        </View>
+      )}
+      {selectedAddress && routeInfo && (
+        <View style={styles.routeInfoPanel}>
+          <Text style={styles.panelHeader}>Färdbeskrivning</Text>
+          <Text style={styles.routeText}>Min plats till</Text>
+          <Text style={styles.destinationText}>{selectedAddress}</Text>
 
-      {/* PanelButtons längst ner */}
+          <View style={styles.transportOptionsRow}>
+            {["driving", "walking", "bicycling"].map((mode) => (
+              <TouchableOpacity
+                key={mode}
+                style={[
+                  styles.modeButton,
+                  transportMode === mode && styles.selectedModeButton,
+                ]}
+                onPress={() => {
+                  setTransportMode(mode);
+                  if (currentLocation && destination) {
+                    fetchRoute(currentLocation, destination, mode);
+                  }
+                }}
+              >
+                <Text style={styles.transportIcon}>
+                  {mode === "driving" ? "🚗" : mode === "walking" ? "🚶‍♂️" : "🚴‍♀️"}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.durationText}>
+            🕒 {routeInfo.duration} – 📏 {routeInfo.distance}
+          </Text>
+          <TouchableOpacity
+            style={styles.navigateButton}
+            onPress={() => {
+              setNavigationMode(true); // vi lägger till detta state
+            }}
+          >
+            <Text style={styles.navigateButtonText}>Starta navigering</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {showStartButton && !showTransportOptions && (
+        <TouchableOpacity
+          style={styles.startButton}
+          onPress={() => {
+            setShowTransportOptions(true);
+            setShowStartButton(false);
+          }}
+        >
+          <Text style={styles.startButtonText}>Starta navigering</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* 7C. PanelButtons längst ner */}
       {/* <PanelButtons
         is3D={is3D}
         onToggleView={toggleView}
@@ -292,5 +394,104 @@ const styles = StyleSheet.create({
   map: {
     width: Dimensions.get("window").width,
     height: Dimensions.get("window").height,
+  },
+  startButton: {
+    backgroundColor: "#007AFF",
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    margin: 10,
+  },
+  startButtonText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  transportOptions: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    padding: 10,
+  },
+  modeButton: {
+    padding: 10,
+    backgroundColor: "#EEE",
+    borderRadius: 10,
+    alignItems: "center",
+    marginHorizontal: 8,
+  },
+
+  selectedModeButton: {
+    backgroundColor: "#007AFF",
+  },
+
+  transportIcon: {
+    fontSize: 24,
+  },
+  routeInfoPanel: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "white",
+    padding: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    elevation: 10,
+  },
+
+  panelHeader: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 5,
+  },
+
+  routeText: {
+    fontSize: 14,
+    color: "#444",
+  },
+
+  destinationText: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 15,
+  },
+
+  transportOptionsRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: 10,
+  },
+
+  durationText: {
+    fontSize: 14,
+    textAlign: "center",
+    color: "#333",
+  },
+  navigateButton: {
+    backgroundColor: "#34C759",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  navigateButtonText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  navigationOverlay: {
+    position: "absolute",
+    bottom: 100,
+    backgroundColor: "white",
+    padding: 15,
+    borderRadius: 10,
+    marginHorizontal: 20,
+    elevation: 6,
+    alignSelf: "center",
+  },
+  navigationInstruction: {
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
